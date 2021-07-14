@@ -1,3 +1,7 @@
+# User directories
+input/
+visualizations/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
