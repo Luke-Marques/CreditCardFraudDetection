@@ -16,8 +16,12 @@ from sklearn.tree import DecisionTreeClassifier  # decision tree algorithm
 from sklearn.tree import plot_tree  # function to display decision tree
 from sklearn.svm import SVC  # svm algorithm
 from sklearn.ensemble import RandomForestClassifier  # random forest algorithm
+from sklearn.model_selection import cross_val_score  # cross validation method
+from sklearn.model_selection import GridSearchCV  # parameter tuning method using cv
 
 from termcolor import colored as cl  # text customization
+
+from operator import itemgetter  # used to get key with max val in dict
 
 sns.set_style('dark')
 
@@ -109,9 +113,9 @@ print(cl('------------------------------', attrs=['bold']))
 sc = StandardScaler()  # initialize StandardScaler
 
 amount_values = df['Amount'].values
-df['norm_amount'] = sc.fit_transform(amount_values.reshape(-1, 1))
+df['Amount'] = sc.fit_transform(amount_values.reshape(-1, 1))
 
-# %% DATA SPLITTING
+# %% STATIC DATA SPLITTING
 
 X = df.drop(columns='Class').values  # independent variables
 y = df.Class.values  # dependent variable
@@ -290,6 +294,12 @@ show_times('rf')
 df_metric = pd.DataFrame.from_dict(all_model_metrics).T
 df_metric = df_metric.reset_index(drop=False).rename(columns={'index': 'model'})
 
+# %% TIMES DATAFRAME
+
+# create pandas dataframe from time dictionary
+df_time = pd.DataFrame.from_dict(all_model_times).T
+df_time = df_time.reset_index(drop=False).rename(columns={'index': 'model'})
+
 # %% COLOR PALETTES
 
 # get color palettes
@@ -354,12 +364,6 @@ plt.gcf().subplots_adjust(left=0.15, bottom=0.14)
 # display plot
 plt.show()
 
-# %% TIMES DATAFRAME
-
-# create pandas dataframe from time dictionary
-df_time = pd.DataFrame.from_dict(all_model_times).T
-df_time = df_time.reset_index(drop=False).rename(columns={'index': 'model'})
-
 # %% TIMES PLOT
 
 # reshape df_time dataframe
@@ -401,3 +405,72 @@ plt.gcf().subplots_adjust(left=0.15, bottom=0.14)
 
 # display plot
 plt.show()
+
+# %% DECISION TREE MODELLING - CROSS VALIDATION AND HYPER-PARAM TUNING
+
+# although the above tests proved mostly successful for predicting outputs (classifying)
+# the hyper-parameters of each algorithm could be improved by using cross-validation methods
+# such as k-fold cross validation, e.g. is the depth of the decision tree optimal?
+# let's try that out...
+
+depth_scores = {}  # empty dictionary to store results
+for i in range(2, 21):
+    tree_model = DecisionTreeClassifier(max_depth=i)
+    # perform 7 fold cross validation
+    scores = cross_val_score(estimator=tree_model, X=X_train, y=y_train, cv=7, n_jobs=4)
+    depth_scores[i] = scores.mean()
+# get depth with maximum cross validation mean score
+optimal_depth = max(depth_scores.items(), key=itemgetter(1))[0]
+
+# print the optimal depth and it's associated 7 fold cross validation mean score
+print(cl('DECISION TREE MODELLING - CV AND HYPER-PARAM TUNING', attrs=['bold']))
+print(cl('------------------------------', attrs=['bold']))
+print('Optimal Tree Depth : ', end='')
+print(cl(optimal_depth, 'white'))
+print('7 Fold Cross Validation Score : ', end='')
+print(cl(depth_scores[optimal_depth], 'white'))
+print(cl('------------------------------', attrs=['bold']))
+
+# this loop worked well for the decision tree as we only optimised one hyper-parameter
+# what about when we want to optimise multiple hyper-parameters?
+
+# %% SUPPORT VECTOR MACHINE MODELLING - EXHAUSTIVE GRID SEARCH
+
+# print a list of hyper-parameters for the support vector classifier
+svm_model = SVC()
+hyper_params = svm_model.get_params()
+print(cl('SVC HYPER-PARAMETERS', attrs=['bold']))
+print(cl('------------------------------', attrs=['bold']))
+for key in hyper_params:
+    print(key)
+print(cl('------------------------------', attrs=['bold']))
+print('Number of Hyper-Parameters : ', end='')
+print(cl(len(hyper_params), 'white'))
+print(cl('------------------------------', attrs=['bold']))
+
+# hyper-parameters we want to test
+tuned_params = [{'kernel': ['rbf'], 'gamma': [1e-3, 1e-4], 'C': [1, 10, 100, 1000]},
+                {'kernel': ['linear'], 'C': [1, 10, 100, 1000]}]
+
+# scores to maximise
+scores = ['accuracy', 'f1']
+
+print(cl('TUNING HYPER-PARAMETERS OF \nSUPPORT VECTOR CLASSIFIER', attrs=['bold']))
+for score in scores:
+    print(cl('------------------------------', attrs=['bold']))
+    print('Tuning hyper-parameters to \nmaximise {} score...'.format(score), end=' ')
+    # tries each combination of tuned hyper-parameters with cv to get mean score
+    svm_model = GridSearchCV(SVC(), tuned_params, scoring=score)
+    svm_model.fit(X_train, y_train)
+    print('Done!')
+    print('Optimal hyper-parameters found using training data : ', end='')
+    print(cl(svm_model.best_params_, 'white'))
+    print('Mean score using optimal hyper-parameters : ', end='')
+    print(cl(svm_model.best_score_, 'white'))
+    print(cl('------------------------------', attrs=['bold']))
+
+# update model to use best hyper-parameters
+svm_model = svm_model.best_estimator_
+
+# %% CROSS VALIDATION PLOTS
+
