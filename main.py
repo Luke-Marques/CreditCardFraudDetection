@@ -5,7 +5,7 @@ import time
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import pandas as pd
-import seaborn as sns
+import sklearn.metrics
 
 from sklearn import metrics  # evaluation of models
 from sklearn.linear_model import LogisticRegression  # logistic regression algorithm
@@ -22,8 +22,6 @@ from sklearn.model_selection import GridSearchCV  # parameter tuning method usin
 from termcolor import colored as cl  # text customization
 
 from operator import itemgetter  # used to get key with max val in dict
-
-sns.set_style('dark')
 
 # %% MODEL RESULTS
 
@@ -229,6 +227,8 @@ all_model_times['lr'] = {'build_time': lr_build_time,
 # report lr metrics and times
 show_metrics('lr')
 show_times('lr')
+
+print(metrics.classification_report(y_test, lr_model_yhat))
 
 # %% SUPPORT VECTOR MACHINE MODELLING
 
